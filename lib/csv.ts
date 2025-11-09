@@ -22,3 +22,29 @@ export function parseCSV(file: File): Promise<Catalog> {
     });
   });
 }
+export async function parseSuppliersCSV(file: File): Promise<Record<string, string>> {
+  const Papa = (await import("papaparse")).default;
+  return new Promise((resolve, reject) => {
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim().toLowerCase(),
+      complete: (res) => {
+        try {
+          const map: Record<string, string> = {};
+          for (const row of res.data) {
+            const supplier = (row["supplier"] || "").trim();
+            let phone = (row["phone"] || "").trim();
+            if (!supplier || !phone) continue;
+            phone = phone.replace(/[^\d]/g, ""); // убираем лишние символы
+            map[supplier] = phone;
+          }
+          resolve(map);
+        } catch (e) {
+          reject(e);
+        }
+      },
+      error: reject,
+    });
+  });
+}
