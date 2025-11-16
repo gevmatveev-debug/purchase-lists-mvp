@@ -30,10 +30,11 @@ function waLink(phone: string, text: string) {
 
 export default function ReviewPage() {
   const router = useRouter();
-  const { items } = useOrder();
+  const { items, clear } = useOrder();
   const { catalog } = useCatalog();
   const { phones } = useSuppliers();
 
+  // строки вида "• Мука — 2 кг"
   const rows = useMemo(() => {
     const out: { supplier: string; line: string }[] = [];
     for (const it of items) {
@@ -50,18 +51,26 @@ export default function ReviewPage() {
 
   const groups = useMemo(() => groupBySupplier(rows), [rows]);
 
+  // комментарии по каждому поставщику
   const [comments, setComments] = useState<Record<string, string>>({});
   const setComment = (s: string, v: string) =>
     setComments((prev) => ({ ...prev, [s]: v }));
 
   const handleEdit = () => {
-    // вернуться к редактированию списка продуктов, данные не очищаются
+    // вернуться к редактированию заказа, НЕ очищая данные
     router.push("/order");
   };
 
   const handleFinish = () => {
-    // полностью закончить: перезапуск приложения, всё очищается
+    // закончить: очистить заказ и перейти на главную
+    clear();
     if (typeof window !== "undefined") {
+      // на всякий случай чистим наш ключ в localStorage
+      try {
+        window.localStorage.removeItem("purchase-lists-order");
+      } catch (e) {
+        // игнорируем
+      }
       window.location.href = "/";
     }
   };
