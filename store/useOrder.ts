@@ -1,30 +1,40 @@
-import { create } from "zustand";
-import type { OrderItem } from "@/types";
+"use client";
 
-type OrderState = {
-  items: OrderItem[];
-  setQty: (sku: string, qty: number) => void;
-  reset: () => void;
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+export type OrderItem = {
+  sku: string;
+  qty: number;
 };
 
-const STORAGE_KEY = "orderDraft";
+type State = {
+  items: OrderItem[];
+  setQty: (sku: string, qty: number) => void;
+  setItems: (items: OrderItem[]) => void;
+  clear: () => void;
+};
 
-export const useOrder = create<OrderState>((set, get) => ({
-  items: typeof window !== "undefined" ? JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]") : [],
-  setQty: (sku, qty) => {
-    const items = [...get().items];
-    const idx = items.findIndex(i => i.sku === sku);
-    if (qty <= 0) {
-      if (idx >= 0) items.splice(idx, 1);
-    } else {
-      if (idx >= 0) items[idx].qty = qty;
-      else items.push({ sku, qty });
+export const useOrder = create<State>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      // установить количество для конкретного SKU
+      setQty: (sku, qty) =>
+        set((state) => {
+          const without = state.items.filter((i) => i.sku !== sku);
+          if (qty <= 0) {
+            return { items: without };
+          }
+          return { items: [...without, { sku, qty }] };
+        }),
+      // полностью заменить заказ (при повторении из истории)
+      setItems: (items) => set({ items }),
+      // очистить заказ
+      clear: () => set({ items: [] }),
+    }),
+    {
+      name: "purchase-lists-order", // ключ в localStorage
     }
-    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    set({ items });
-  },
-  reset: () => {
-    if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
-    set({ items: [] });
-  },
-}));
+  )
+);
