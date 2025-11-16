@@ -1,46 +1,48 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type OrderItem = {
   sku: string;
-  name: string;
-  category: string;
-  unit: string;
-  supplier: string;
-  quantity: number;
+  qty: number;
 };
 
 type State = {
   items: OrderItem[];
-  addItem: (item: OrderItem) => void;
-  removeItem: (sku: string) => void;
-  updateQuantity: (sku: string, quantity: number) => void;
-  reset: () => void; // ← добавили!
+  setQty: (sku: string, qty: number) => void;
+  setItems: (items: OrderItem[]) => void;
+  clear: () => void;
+  reset: () => void; // ← добавили reset, чтобы не ругался /order
 };
 
-export const useOrder = create<State>((set) => ({
-  items: [],
-
-  addItem: (item) =>
-    set((state) => ({
-      items: [...state.items, item],
-    })),
-
-  removeItem: (sku) =>
-    set((state) => ({
-      items: state.items.filter((i) => i.sku !== sku),
-    })),
-
-  updateQuantity: (sku, quantity) =>
-    set((state) => ({
-      items: state.items.map((i) =>
-        i.sku === sku ? { ...i, quantity } : i
-      ),
-    })),
-
-  reset: () =>
-    set({
+export const useOrder = create<State>()(
+  persist(
+    (set, get) => ({
       items: [],
+
+      // установить количество для SKU
+      setQty: (sku, qty) =>
+        set((state) => {
+          const without = state.items.filter((i) => i.sku !== sku);
+          if (qty <= 0) {
+            return { items: without };
+          }
+          return { items: [...without, { sku, qty }] };
+        }),
+
+      // полностью заменить список (при повторе заказа и т.п.)
+      setItems: (items) => set({ items }),
+
+      // очистить заказ
+      clear: () => set({ items: [] }),
+
+      // старое API, которое ждёт страница /order
+      // делаем то же самое, что clear
+      reset: () => set({ items: [] }),
     }),
-}));
+    {
+      name: "purchase-lists-order", // ключ в localStorage
+    }
+  )
+);
