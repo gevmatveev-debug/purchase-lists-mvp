@@ -1,53 +1,142 @@
 "use client";
-import { useCatalog } from "@/store/useCatalog";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useOrder } from "@/store/useOrder";
-import { groupBySupplier } from "@/lib/grouping";
-import SupplierBlocks from "@/components/SupplierBlocks";
-import { useState } from "react";
-import { formatAll } from "@/lib/format";
+import { useCatalog } from "@/store/useCatalog";
+import { useSuppliers } from "@/store/useSuppliers";
+
+function groupBySupplier(rows: { supplier: string; line: string }[]) {
+  const m = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!m.has(r.supplier)) m.set(r.supplier, []);
+    m.get(r.supplier)!.push(r.line);
+  }
+  return Array.from(m.entries()).map(([supplier, lines]) => ({ supplier, lines }));
+}
+
+function buildText(supplier: string, lines: string[], comment: string) {
+  const header = `Заказ для: ${supplier}`;
+  const body = lines.join("\n");
+  const tail = comment ? `\nКомментарий: ${comment}` : "";
+  return `${header}\n\n${body}${tail}`;
+}
+
+function waLink(phone: string, text: string) {
+  const t = encodeURIComponent(text);
+  const p = (phone || "").replace(/[^\d]/g, "");
+  return p ? `https://wa.me/${p}?text=${t}` : `https://wa.me/?text=${t}`;
+}
 
 export default function ReviewPage() {
-  const { catalog } = useCatalog();
+  const router = useRouter();
   const { items } = useOrder();
+  const { catalog } = useCatalog();
+  const { phones } = useSuppliers();
 
-  const [venue, setVenue] = useState("СРЕДА");
-  const [note, setNote] = useState("Доставить завтра к 11:00, черный ход.");
+  const rows = useMemo(() => {
+    const out: { supplier: string; line: string }[] = [];
+    for (const it of items) {
+      if (!it.qty || it.qty <= 0) continue;
+      const p = catalog.find((c) => c.sku === it.sku);
+      if (!p) continue;
+      out.push({
+        supplier: p.supplier,
+        line: `• ${p.name} — ${it.qty} ${p.unit}`,
+      });
+    }
+    return out;
+  }, [items, catalog]);
 
-  if (catalog.length === 0) {
+  const groups = useMemo(() => groupBySupplier(rows), [rows]);
+
+  const [comments, setComments] = useState<Record<string, string>>({});
+  const setComment = (s: string, v: string) =>
+    setComments((prev) => ({ ...prev, [s]: v }));
+
+  const handleEdit = () => {
+    // вернуться к редактированию списка продуктов, данные не очищаются
+    router.push("/order");
+  };
+
+  const handleFinish = () => {
+    // полностью закончить: перезапуск приложения, всё очищается
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
+
+  if (groups.length === 0) {
     return (
-      <div className="card p-6">
-        <div>Каталог пуст. Импортируйте CSV на странице <a className="underline" href="/import">Импорт</a>.</div>
+      <div className="space-y-4">
+        <h1 className="h1">Списки по поставщикам</h1>
+        <div className="card p-4">
+          Нет позиций. Заполните количества на странице «Оформить заказ».
+        </div>
       </div>
     );
   }
 
-  const grouped = groupBySupplier(catalog, items);
-  const allText = formatAll(grouped, { venue, footerNote: note });
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Списки по поставщикам</h1>
+      <h1 className="h1">Списки по поставщикам</h1>
 
-      <div className="card p-6 space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Название заведения</span>
-            <input className="input" value={venue} onChange={e=>setVenue(e.target.value)} />
-          </label>
-          <label className="md:col-span-2 flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Комментарий (доставка/окно)</span>
-            <input className="input" value={note} onChange={e=>setNote(e.target.value)} />
-          </label>
-        </div>
-        <div className="flex gap-3">
-          <button className="btn" onClick={async () => {
-            await navigator.clipboard.writeText(allText);
-            alert("Все списки скопированы в буфер обмена");
-          }}>Скопировать всё</button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn" onClick={handleEdit}>
+          Редактировать
+        </button>
+        <button className="btn" onClick={handleFinish}>
+          Закончить
+        </button>
       </div>
 
-      <SupplierBlocks grouped={grouped} venue={venue} footerNote={note} />
+      {groups.map(({ supplier, lines }) => {
+        const phone = phones[supplier] || "";
+        const comment = comments[supplier] || "";
+        const text = buildText(supplier, lines, comment);
+
+        return (
+          <div key={supplier} className="card p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-semibold text-lg">{supplier}</div>
+              {phone ? (
+                <div className="text-sm text-slate-500">WhatsApp: +{phone}</div>
+              ) : (
+                <div className="text-sm text-slate-400">Телефон не указан</div>
+              )}
+            </div>
+
+            <textarea
+              className="textarea w-full h-28"
+              placeholder="Комментарий для этого поставщика (например: завтра до 11:00, вход со двора)…"
+              value={comment}
+              onChange={(e) => setComment(supplier, e.target.value)}
+            />
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                className="btn"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(text);
+                }}
+              >
+                Скопировать текст
+              </button>
+              <a
+                className="btn btn-primary"
+                href={waLink(phone, text)}
+                target="_blank"
+              >
+                Открыть WhatsApp
+              </a>
+            </div>
+
+            <pre className="bg-slate-50 p-3 rounded-md overflow-auto text-sm whitespace-pre-wrap">
+{ text }
+            </pre>
+          </div>
+        );
+      })}
     </div>
   );
 }
