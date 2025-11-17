@@ -41,11 +41,7 @@ export default function OrderPage() {
       {/* Категории */}
       <div className="space-y-4">
         {catalog.map((category) => (
-          <CategoryList
-            key={category.name}
-            category={category.name}
-            products={category.products}
-          />
+          <CategoryList key={category.name} catalog={category} />
         ))}
       </div>
     </div>
