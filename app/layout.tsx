@@ -21,21 +21,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </Link>
 
               <nav className="flex gap-3 flex-wrap text-sm items-center">
-                {/* Оформить заказ + маленькая иконка импорта */}
-                <div className="flex items-center gap-1">
-                  <Link href="/order" className="btn btn-ghost">
-                    Оформить заказ
-                  </Link>
-                  <Link
-                    href="/import"
-                    aria-label="Импорт каталога"
-                    className="text-slate-400 hover:text-slate-700 text-lg"
-                    title="Импорт каталога"
-                  >
-                    ⚙️
-                  </Link>
-                </div>
-
+                <Link href="/order" className="btn btn-ghost">
+                  Оформить заказ
+                </Link>
                 <Link href="/review" className="btn btn-ghost">
                   Списки по поставщикам
                 </Link>
