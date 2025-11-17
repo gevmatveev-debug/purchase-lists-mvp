@@ -3,7 +3,6 @@
 import { useCatalog } from "@/store/useCatalog";
 import { useOrder } from "@/store/useOrder";
 import CategoryList from "@/components/CategoryList";
-import SearchInput from "@/components/SearchInput";
 
 export default function OrderPage() {
   const { catalog } = useCatalog();
@@ -38,8 +37,6 @@ export default function OrderPage() {
         Дробные количества вводите через точку или запятую (например, 0.3 кг
         мяты).
       </p>
-
-      <SearchInput />
 
       {/* Категории */}
       <div className="space-y-4">
