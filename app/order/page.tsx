@@ -46,12 +46,7 @@ export default function OrderPage() {
           </Link>
         </h1>
 
-        {/* Кнопка перехода к спискам по поставщикам */}
-        <Link
-          href="/suppliers"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-        >
-          Списки по поставщикам
+        
         </Link>
       </div>
 
